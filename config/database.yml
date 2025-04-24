@@ -20,10 +20,19 @@ default: &default
   # For details on connection pooling, see Rails configuration guide
   # https://guides.rubyonrails.org/configuring.html#database-pooling
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  database: budget_app
+  host: db
+  username: postgres
+  password: postgres
+  port: 5432
 
 development:
   <<: *default
-  database: Budgy_development
+  database: budget_app
+  host: db
+  username: postgres
+  password: postgres
+  port: 5432
 
   # The specified database role being used to connect to postgres.
   # To create additional roles in postgres see `$ createuser --help`.
@@ -37,7 +46,6 @@ development:
   # Connect on a TCP socket. Omitted by default since the client uses a
   # domain socket that doesn't need configuration. Windows does not have
   # domain sockets, so uncomment these lines.
-  #host: localhost
 
   # The TCP port the server listens on. Defaults to 5432.
   # If your server runs on a different port number, change accordingly.
@@ -57,7 +65,11 @@ development:
 # Do not set this db to the same as development or production.
 test:
   <<: *default
-  database: Budgy_test
+  database: budget_app
+  host: db
+  username: postgres
+  password: postgres
+  port: 5432
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is
@@ -66,7 +78,6 @@ test:
 # Instead, provide the password or a full connection URL as an environment
 # variable when you boot the app. For example:
 #
-#   DATABASE_URL="postgres://myuser:mypass@localhost/somedatabase"
 #
 # If the connection URL is provided in the special DATABASE_URL environment
 # variable, Rails will automatically merge its configuration values on top of
@@ -81,6 +92,8 @@ test:
 #
 production:
   <<: *default
-  database: Budgy_production
-  username: Budgy
-  password: <%= ENV["Budgy_DATABASE_PASSWORD"] %>
+  database: budget_app
+  host: db
+  username: postgres
+  password: postgres
+  port: 5432
