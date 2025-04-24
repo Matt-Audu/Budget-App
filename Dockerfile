@@ -1,37 +1,46 @@
 # Stage 1: Builder
-FROM ruby:3.1.2-alpine AS builder 
+FROM ruby:3.1.2-alpine AS builder
 
-# Install essential build dependencies
+# Install build dependencies
 RUN apk add --no-cache \
     build-base \
     postgresql-dev \
-    git \
     nodejs \
     yarn \
-    tzdata
+    npm \
+    git \
+    tzdata \
+    # Add required libs for Rails 7
+    libc6-compat
 
-# Update bundler to match your lockfile
-RUN gem install bundler:2.3.6
-
-# Set working directory
 WORKDIR /app
 
-# Copy Gemfile and install gems
+# Install specific bundler version first
+RUN gem install bundler -v 2.3.6
+
+# Install gems (with workaround for Rails 7.0.8.7)
 COPY Gemfile Gemfile.lock ./
-RUN bundle config set without 'development test' && \
-    bundle install --jobs 4 --retry 3
+RUN bundle _2.3.6_ install --jobs 4 --retry 3
+
+# Install npm packages
+COPY package.json package-lock.json ./
+RUN npm install
 
 # Copy the rest of the application
 COPY . .
 
-# Generate production assets
+# Precompile assets with secret key
 ARG RAILS_ENV=production
-ARG SECRET_KEY_BASE=placeholder
-RUN if [ "${RAILS_ENV}" = "production" ]; then \
-    bundle exec rails assets:precompile; \
+
+ARG RAILS_MASTER_KEY
+
+ENV RAILS_MASTER_KEY=${RAILS_MASTER_KEY}
+
+RUN if [ "$RAILS_ENV" = "production" ]; then \
+      bundle exec rails assets:precompile; \
     fi
 
-# Stage 2: Final
+# Stage 2: Runtime
 FROM ruby:3.1.2-alpine
 
 # Install runtime dependencies only
@@ -39,29 +48,26 @@ RUN apk add --no-cache \
     postgresql-client \
     nodejs \
     tzdata \
-    && addgroup -g 1000 app \
-    && adduser -u 1000 -G app -s /bin/sh -D app
+    bash \
+    # Required for Rails 7
+    libc6-compat
 
 WORKDIR /app
 
-# Copy from builder
-COPY --from=builder /usr/local/bundle /usr/local/bundle
+# Copy assets from builder stage
+COPY --from=builder /app/public/assets /app/public/assets
+
+# Copy gems from builder stage
+COPY --from=builder /usr/local/bundle/ /usr/local/bundle/
+
+# Copy npm modules from builder stage
+COPY --from=builder /app/node_modules /app/node_modules
+
+# Copy application code
 COPY --from=builder /app /app
 
-COPY docker-entrypoint.sh /app/
-
-# Fix permissions
-RUN chmod +x /app/docker-entrypoint.sh && \
-    mkdir -p /app/tmp /app/log && \
-    chown -R app:app /app/tmp /app/log && \
-    chmod -R 0755 /app/tmp /app/log
-
-USER app
-RUN ls -la /app/
-ENV RAILS_ENV=production \
-    RAILS_SERVE_STATIC_FILES=true \
-    RAILS_LOG_TO_STDOUT=true
-
+# Expose port 3000
 EXPOSE 3000
 
-CMD ["/app/docker-entrypoint.sh"]
+# Start the application
+CMD ["rails", "server", "-b", "0.0.0.0"]
